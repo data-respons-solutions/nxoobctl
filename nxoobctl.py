@@ -70,16 +70,17 @@ Example:
     parser.add_argument('--uri', required=True, help='Target uri (wss://[ip]:[port]')
     args = parser.parse_args()
     
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
-    
     if not args.command in COMMANDS:
         print(f'--command "{args.command}" not supported', file=sys.stderr)
         sys.exit(1)
     
     msg = create_message(COMMANDS[args.command])
     json_msg = json.dumps(msg)
+    
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
     r = asyncio.run(send_message(args.uri, ssl_context, json_msg))
     if 'params' in r and 'commandAcks' in r['params']:
         for data in r['params']['commandAcks']:
