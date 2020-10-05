@@ -137,6 +137,8 @@ Example:
         if not os.path.isfile(args.cert):
             print(f'"{args.cert}" not a file', file=sys.stderr)
             sys.exit(1)
+        if args.debug:
+            print(f'using authorization keys:\n  {args.key}\n  {args.cert}')
         ssl_context.load_cert_chain(args.cert, args.key)
             
     ssl_context.check_hostname = False
