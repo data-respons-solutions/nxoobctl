@@ -103,6 +103,8 @@ Example:
     parser.add_argument('--uri', required=True, help='Target uri (wss://[ip]:[port]')
     parser.add_argument('arg', nargs='?', help="Arguments for selected command")
     parser.add_argument('-d', '--debug', action='store_true', help='Debug output')
+    parser.add_argument('--key', help='Certificate private key')
+    parser.add_argument('--cert', help='Certificate public key')
     args = parser.parse_args()
     
     if not args.command in MESSAGE_TYPES:
@@ -127,6 +129,16 @@ Example:
     msg = create_message(cmd)
     
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    # Add private and public keys if provided
+    if args.key and args.cert:
+        if not os.path.isfile(args.key):
+            print(f'"{args.key}" not a file', file=sys.stderr)
+            sys.exit(1)
+        if not os.path.isfile(args.cert):
+            print(f'"{args.cert}" not a file', file=sys.stderr)
+            sys.exit(1)
+        ssl_context.load_cert_chain(args.cert, args.key)
+            
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
     r = asyncio.run(send_message(args.uri, ssl_context, msg, debug=args.debug))
