@@ -5,10 +5,12 @@ import time
 import json
 import uuid
 import asyncio
-import websockets
 import ssl
 import argparse
+import os
 from argparse import RawDescriptionHelpFormatter
+
+import websockets
 
 COMMANDS = {
     'get_config': {
