@@ -46,7 +46,7 @@ async def send_message(uri, ssl_context, msg):
         ack = await asyncio.wait_for(ws.recv(), timeout=5.0)
         json_ack = json.loads(ack)
         if 'params' not in json_ack or 'commandState' not in json_ack['params'] or json_ack['params']['commandState'] != 'ACCEPTED':
-            raise RuntimeError(f'Command not accepted by oob module. Message: {ack}')
+            raise RuntimeError(f'Command not accepted by oob module. Received: {ack}')
         resp = await asyncio.wait_for(ws.recv(), timeout=5.0)
         return json.loads(resp)
         
