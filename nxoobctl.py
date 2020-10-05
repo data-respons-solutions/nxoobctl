@@ -42,16 +42,23 @@ def create_message(command, command_index=1):
     }
     return data
 
-async def send_message(uri, ssl_context, msg):
+async def send_message(uri, ssl_context, msg, debug=False):
     async with websockets.connect(uri, ssl=ssl_context) as ws:
-        await ws.send(msg)
-        ack = await asyncio.wait_for(ws.recv(), timeout=5.0)
-        json_ack = json.loads(ack)
-        if 'params' not in json_ack or 'commandState' not in json_ack['params'] or json_ack['params']['commandState'] != 'ACCEPTED':
+        if debug:
+            print(f'Sending message:\n{msg}')
+        json_msg = json.dumps(msg)
+        await ws.send(json_msg)
+        json_ack = await asyncio.wait_for(ws.recv(), timeout=5.0)
+        ack = json.loads(json_ack)
+        if debug:
+            print(f'Received ack:\n{ack}')
+        if 'params' not in ack or 'commandState' not in ack['params'] or ack['params']['commandState'] != 'ACCEPTED':
             raise RuntimeError(f'Command not accepted by oob module. Received: {ack}')
-        resp = await asyncio.wait_for(ws.recv(), timeout=5.0)
-        return json.loads(resp)
-        
+        json_r = await asyncio.wait_for(ws.recv(), timeout=5.0)
+        r = json.loads(json_r)
+        if debug:
+            print(f'Received message:\n{r}')
+        return r
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='''oob module control
@@ -70,6 +77,8 @@ Example:
                                      formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('-c', '--command', required=True, help='Command to run on target')
     parser.add_argument('--uri', required=True, help='Target uri (wss://[ip]:[port]')
+    parser.add_argument('arg', nargs='?', help="Arguments for selected command")
+    parser.add_argument('-d', '--debug', action='store_true', help='Debug output')
     args = parser.parse_args()
     
     if not args.command in COMMANDS:
@@ -82,11 +91,11 @@ Example:
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    
-    r = asyncio.run(send_message(args.uri, ssl_context, json_msg))
+    r = asyncio.run(send_message(args.uri, ssl_context, msg, debug=args.debug))
     if 'params' in r and 'commandAcks' in r['params']:
         for data in r['params']['commandAcks']:
             if 'result' in data:
                 for key, value in data['result'].items():
                     print(f'{key}: {value}')
+
     sys.exit(0)
