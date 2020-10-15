@@ -13,19 +13,19 @@ from argparse import RawDescriptionHelpFormatter
 
 import websockets
 
-def create_message(message, command_index=1):
+def create_message(appGUID=None, moduleName=None, command=None, command_index=1):
     cmduuid = str(uuid.uuid4())
     data = {
         'jsonrpc': '2.0',
         'method': 'v1/notifyPluginLocalCommand',
         'params': {
             'clientAppGUID': cmduuid,
-            'appGUID': message['appGUID'],
+            'appGUID': appGUID,
             'epoch': int(time.time()),
             'commandId': f'{cmduuid}|{command_index}',
             'commandSource': 'local',
-            'moduleName': message['moduleName'], 
-            'commands': [message['command']]
+            'moduleName': moduleName, 
+            'commands': [command]
         }
     }
     return data
@@ -39,25 +39,21 @@ def validate_ip(ip):
 
 def create_set_config(arg):
     cmd = {
-        'appGUID': 'bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
-        'moduleName': 'IPBased_NXODMDEMO2',
-        'command': {
-            'name': 'deviceConfig',
-            'params': [{
-                'name': 'deviceName',
-                'value': 'SUNIX_EZM1150TS'
-            },
-            {
-                'name': 'GMT',
-                'value': 'UTC+0'
-            },
-            {
-                'name': 'NTP',
-                'value': ''
-            }]
-        }
+        'name': 'deviceConfig',
+        'params': [{
+            'name': 'deviceName',
+            'value': 'SUNIX_EZM1150TS'
+        },
+        {
+            'name': 'GMT',
+            'value': 'UTC+0'
+        },
+        {
+            'name': 'NTP',
+            'value': ''
+        }]
     }
-        
+
     pairs = args.arg.split(',')
     for pair in pairs: 
         key = ''
@@ -83,43 +79,69 @@ def create_set_config(arg):
             'name': key,
             'value': value
         }
-        cmd['command']['params'].append(new)
+        cmd['params'].append(new)
         
-    return cmd
+    return create_message(appGUID='bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
+                         moduleName='IPBased_NXODMDEMO2',
+                         command=cmd)
+
+
+def create_get_config(arg):
+    msg = create_message(appGUID='bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
+                         moduleName='IPBased_NXODMDEMO2',
+                         command={'name': 'getDeviceInfo'})
+    return msg
+
+def create_reboot(arg):
+    cmd = {
+        'name': 'rebootHost',
+        'params': [{
+            'name': 'highPulseDurationReset',
+            'value': '1000'
+        }]
+    }
+    return create_message(appGUID='bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
+                         moduleName='IPBased_NXODMDEMO2',
+                         command=cmd)
+
+def create_set_certificate(arg):
+    cmd = {
+        'name': 'UpdateClientCert',
+        'params': [{
+            'name': 'publicpem',
+            'value': None # Insert public certificate here
+        }]
+    }
+
+    if not os.path.isfile(arg):
+        print(f'"{arg}" not a file', file=sys.stderr)
+        sys.exit(1)
+    with open(arg, 'r') as f:
+        cert = f.read()
+        cmd['params'][0]['value'] = cert
+    
+    
+    return create_message(appGUID='bdmplugin',
+                         moduleName='websocket',
+                         command=cmd)
 
 MESSAGE_TYPES = {
     'get_config': {
-        'appGUID': 'bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
-        'moduleName': 'IPBased_NXODMDEMO2',
-        'command': {
-            'name': 'getDeviceInfo'
-        }
+        'factory': create_get_config,
+        'need_arg': False
     },
     'set_config': {
         'factory': create_set_config,
+        'need_arg': True
     },
     'reboot': {
-        'appGUID': 'bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
-        'moduleName': 'IPBased_NXODMDEMO2',
-        'command': {
-            'name': 'rebootHost',
-            'params': [{
-                'name': 'highPulseDurationReset',
-                'value': '1000'
-                }]
-        }
+        'factory': create_reboot,
+        'need_arg': False
     },
     'set_certificate': {
-        'appGUID': 'bdmplugin',
-        'moduleName': 'websocket',
-        'command': {
-            'name': 'UpdateClientCert',
-            'params': [{
-                'name': 'publicpem',
-                'value': None # Insert public certificate here
-            }]
-        }
-    }
+        'factory': create_set_certificate,
+        'need_arg': True
+    },
 }
 
 async def send_message(uri, ssl_context, msg, debug=False):
@@ -166,7 +188,7 @@ Example:
     $ nxoobctl.py --uri wss://192.168.0.11:55688 -c get_config
     
     Set configuration, static ip 192.168.0.11
-     $ nxoobctl.py --uri wss://192.168.0.11:55688 -c set_config IPAddress=192.168.0.11,IPMode=STATIC
+    $ nxoobctl.py --uri wss://192.168.0.11:55688 -c set_config IPAddress=192.168.0.11,IPMode=STATIC
 ''',
                                      epilog='''Return value:
 0 for success, 1 for failure                                
@@ -183,26 +205,14 @@ Example:
     if not args.command in MESSAGE_TYPES:
         print(f'--command "{args.command}" not supported', file=sys.stderr)
         sys.exit(1)
-    
-    # Test for commands requiring extra argument
-    if args.command in ['set_certificate', 'set_config']:
+
+    if MESSAGE_TYPES[args.command]['need_arg']:
         if not args.arg:
             print(f'--command "{args.command}" required additional arguments', file=sys.stderr)
             sys.exit(1)
-    
-    cmd = MESSAGE_TYPES[args.command]
-    # Special handling for commands requiring argument
-    if args.command == 'set_certificate':
-        if not os.path.isfile(args.arg):
-            print(f'"{args.arg}" not a file', file=sys.stderr)
-            sys.exit(1)
-        with open(args.arg, 'r') as f:
-            cert = f.read()
-        cmd['command']['params'][0]['value'] = cert
-    elif args.command == 'set_config':
-        cmd = MESSAGE_TYPES['set_config']['factory'](args.arg)
-    msg = create_message(cmd)
-    
+        
+    msg = MESSAGE_TYPES[args.command]['factory'](args.arg)
+
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     # Add private and public keys if provided
     if args.key and args.cert:
