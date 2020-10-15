@@ -4,6 +4,13 @@ import unittest
 import subprocess
 from subprocess import CalledProcessError
 
+'''
+All tests expect that certificate in CERT_PATH has already been installed to module
+Note:
+  FW EZM1150TS_MT0_V1_0_20201014_SDK_PRODUCT_OPMI_NXOOB.rom:
+    Module did not accept connections after intalling certificate
+'''
+
 KEY_PATH =  './cert.key'
 CERT_PATH = './cert.pub'
 URI = 'wss://192.168.0.130:55688'
@@ -19,13 +26,6 @@ DEFAULT_CONFIG = {
     'fwVersion': '1.0.0-20201014-NXOOB',
     'GUID': '',
 }
-
-'''
-All tests expect that certificate in CERT_PATH has already been installed to module
-Note:
-  FW EZM1150TS_MT0_V1_0_20201014_SDK_PRODUCT_OPMI_NXOOB.rom:
-    Module did not accept connections after intalling certificate
-'''
 
 def nxoobctl(cmdlist, key=KEY_PATH, cert=CERT_PATH, uri=URI):
     args = ['./nxoobctl.py', '--uri', uri]
