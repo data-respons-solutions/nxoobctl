@@ -8,9 +8,84 @@ import asyncio
 import ssl
 import argparse
 import os
+import ipaddress
 from argparse import RawDescriptionHelpFormatter
 
 import websockets
+
+def create_message(message, command_index=1):
+    cmduuid = str(uuid.uuid4())
+    data = {
+        'jsonrpc': '2.0',
+        'method': 'v1/notifyPluginLocalCommand',
+        'params': {
+            'clientAppGUID': cmduuid,
+            'appGUID': message['appGUID'],
+            'epoch': int(time.time()),
+            'commandId': f'{cmduuid}|{command_index}',
+            'commandSource': 'local',
+            'moduleName': message['moduleName'], 
+            'commands': [message['command']]
+        }
+    }
+    return data
+
+def validate_ip(ip):
+    try:
+        ipaddress.IPv4Address(ip)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+def create_set_config(arg):
+    cmd = {
+        'appGUID': 'bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
+        'moduleName': 'IPBased_NXODMDEMO2',
+        'command': {
+            'name': 'deviceConfig',
+            'params': [{
+                'name': 'deviceName',
+                'value': 'SUNIX_EZM1150TS'
+            },
+            {
+                'name': 'GMT',
+                'value': 'UTC+0'
+            },
+            {
+                'name': 'NTP',
+                'value': ''
+            }]
+        }
+    }
+        
+    pairs = args.arg.split(',')
+    for pair in pairs: 
+        key = ''
+        value = ''
+        try:
+            key, value = pair.split('=', 1)
+        except ValueError:
+            print(f'set_config: invalid arg: "{arg}"', file=sys.stderr)
+            sys.exit(1)
+        if key in ('IPAddress', 'netMask', 'defaultGw', 'DNS'):
+            if not validate_ip(value):
+                print(f'set_config: invalid ip: "{key}={value}"', file=sys.stderr)
+                sys.exit(1)
+        elif key in ('IPMode'):
+            if not value in ('STATIC', 'DHCP'):
+                print(f'set_config: invalid mode: "{key}={value}"', file=sys.stderr)
+                sys.exit(1)
+        else:
+            print(f'set_config: unknown parameter: "{key}={value}"', file=sys.stderr)
+            sys.exit(1)
+        
+        new = {
+            'name': key,
+            'value': value
+        }
+        cmd['command']['params'].append(new)
+        
+    return cmd
 
 MESSAGE_TYPES = {
     'get_config': {
@@ -19,6 +94,9 @@ MESSAGE_TYPES = {
         'command': {
             'name': 'getDeviceInfo'
         }
+    },
+    'set_config': {
+        'factory': create_set_config,
     },
     'reboot': {
         'appGUID': 'bdc88ee7-f98b-46e9-9ea4-7fe3c69775a8',
@@ -43,23 +121,6 @@ MESSAGE_TYPES = {
         }
     }
 }
-
-def create_message(message, command_index=1):
-    cmduuid = str(uuid.uuid4())
-    data = {
-        'jsonrpc': '2.0',
-        'method': 'v1/notifyPluginLocalCommand',
-        'params': {
-            'clientAppGUID': cmduuid,
-            'appGUID': message['appGUID'],
-            'epoch': int(time.time()),
-            'commandId': f'{cmduuid}|{command_index}',
-            'commandSource': 'local',
-            'moduleName': message['moduleName'], 
-            'commands': [message['command']]
-        }
-    }
-    return data
 
 async def send_message(uri, ssl_context, msg, debug=False):
     async with websockets.connect(uri, ssl=ssl_context) as ws:
@@ -90,10 +151,22 @@ Available --commands:
     set_certificate CERTIFICATE
        Set public key required for authentication
        CERTIFICATE should point to certificate file
-    
+    set_config LIST
+       Set target configuration
+       LIST should be comma separated list of key=value pairs.
+       Available keys:
+          IPAddress
+          netMask
+          defaultGw
+          DNS
+          IPMode ( STATIC | DHCP )
+
 Example:
     Read configuration:
     $ nxoobctl.py --uri wss://192.168.0.11:55688 -c get_config
+    
+    Set configuration, static ip 192.168.0.11
+     $ nxoobctl.py --uri wss://192.168.0.11:55688 -c set_config IPAddress=192.168.0.11,IPMode=STATIC
 ''',
                                      epilog='''Return value:
 0 for success, 1 for failure                                
@@ -112,7 +185,7 @@ Example:
         sys.exit(1)
     
     # Test for commands requiring extra argument
-    if args.command in ['set_certificate']:
+    if args.command in ['set_certificate', 'set_config']:
         if not args.arg:
             print(f'--command "{args.command}" required additional arguments', file=sys.stderr)
             sys.exit(1)
@@ -126,6 +199,8 @@ Example:
         with open(args.arg, 'r') as f:
             cert = f.read()
         cmd['command']['params'][0]['value'] = cert
+    elif args.command == 'set_config':
+        cmd = MESSAGE_TYPES['set_config']['factory'](args.arg)
     msg = create_message(cmd)
     
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
