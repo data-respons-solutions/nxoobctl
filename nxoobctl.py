@@ -40,18 +40,7 @@ def validate_ip(ip):
 def create_set_config(arg):
     cmd = {
         'name': 'deviceConfig',
-        'params': [{
-            'name': 'deviceName',
-            'value': 'SUNIX_EZM1150TS'
-        },
-        {
-            'name': 'GMT',
-            'value': 'UTC+0'
-        },
-        {
-            'name': 'NTP',
-            'value': ''
-        }]
+        'params': []
     }
 
     pairs = args.arg.split(',')
@@ -71,6 +60,8 @@ def create_set_config(arg):
             if not value in ('STATIC', 'DHCP'):
                 print(f'set_config: invalid mode: "{key}={value}"', file=sys.stderr)
                 sys.exit(1)
+        elif key in ('NTP', 'NTP2'):
+            pass
         else:
             print(f'set_config: unknown parameter: "{key}={value}"', file=sys.stderr)
             sys.exit(1)
@@ -181,6 +172,8 @@ Available --commands:
           netMask
           defaultGw
           DNS
+          NTP
+          NTP2
           IPMode ( STATIC | DHCP )
 
 Example:
