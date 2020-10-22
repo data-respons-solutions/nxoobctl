@@ -6,9 +6,6 @@ from subprocess import CalledProcessError
 
 '''
 All tests expect that certificate in CERT_PATH has already been installed to module
-Note:
-  FW EZM1150TS_MT0_V1_0_20201014_SDK_PRODUCT_OPMI_NXOOB.rom:
-    Module did not accept connections after intalling certificate
 '''
 
 KEY_PATH =  './cert.key'
@@ -21,9 +18,10 @@ DEFAULT_CONFIG = {
     'netmask': '255.255.255.0',
     'defaultGw': '192.168.0.254',
     'DNS': '0.0.0.0',
-    'NTP': '',
+    'NTP': '0.europe.pool.ntp.org',
+    'NTP2': '0.pool.ntp.org',
     'GMT': 'UTC+0',
-    'fwVersion': '1.0.0-20201014-NXOOB',
+    'fwVersion': '1.0.0-20201020-NXOOB',
     'GUID': '',
 }
 
