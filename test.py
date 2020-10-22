@@ -34,35 +34,69 @@ def nxoobctl(cmdlist, key=KEY_PATH, cert=CERT_PATH, uri=URI):
     r = subprocess.run(args, capture_output=True, text=True, check=True)
     return r.stdout
 
+def config_to_dict(string):
+    map = {}
+    for pair in string.split('\n'):
+        try:
+            key, value = pair.split(': ', 1)
+            map[key.strip()] = value.strip()
+        except ValueError:
+            map[pair.strip()] = ''
+    return map
+
 class test_get_config(unittest.TestCase):
     def setUp(self):
-        self.cmd = 'get_config'
+        self.cmd = ['get_config']
     def test_validate_default(self):
-        r = nxoobctl([self.cmd])
-        map = {}
-        for pair in r.split('\n'):
-            try:
-                key, value = pair.split(': ', 1)
-                map[key.strip()] = value.strip()
-            except ValueError:
-                map[pair.strip()] = ''
-
+        r = nxoobctl(self.cmd)
+        map = config_to_dict(r)
         for key, val in DEFAULT_CONFIG.items():
             self.assertTrue(key in map)
             self.assertTrue(map[key] == val)
             
     def test_unauthorized(self):
         with self.assertRaises(CalledProcessError):
-            nxoobctl([self.cmd], key=None)
+            nxoobctl(self.cmd, key=None)
             
 class test_reboot(unittest.TestCase):
     def setUp(self):
-        self.cmd = 'reboot'
+        self.cmd = ['reboot']
     def test_ok(self):
-        nxoobctl([self.cmd])
+        nxoobctl(self.cmd)
     def test_unauthorized(self):
         with self.assertRaises(CalledProcessError):
-            nxoobctl([self.cmd], key=None)
-        
+            nxoobctl(self.cmd, key=None)
+
+class test_set_config(unittest.TestCase):
+    def setUp(self):
+        self.cmd_set = ['set_config']
+        self.cmd_get = ['get_config']
+    def tearDown(self):
+        cmd = self.cmd_set.copy()
+        cmd.append(f'NTP={DEFAULT_CONFIG["NTP"]},NTP2={DEFAULT_CONFIG["NTP2"]},DNS={DEFAULT_CONFIG["DNS"]}')
+        nxoobctl(cmd)
+    def _test_var(self, key, value):
+        cmd = self.cmd_set.copy()
+        cmd.append(f'{key}={value}')
+        nxoobctl(cmd)
+        r = nxoobctl(self.cmd_get)
+        map = config_to_dict(r)
+        new_config = DEFAULT_CONFIG.copy()
+        new_config[key] = value
+        for key, val in new_config.items():
+            self.assertTrue(key in map)
+            self.assertTrue(map[key] == val)   
+    def test_set_ntp(self):
+        self._test_var('NTP', '3.pool.ntp.org')
+    def test_set_ntp2(self):
+        self._test_var('NTP2', '3.pool.ntp.org')
+    def test_set_dns(self):
+        self._test_var('DNS', '1.1.1.1')   
+    def test_unauthorized(self):
+        cmd = self.cmd_set.copy()
+        cmd.append('DNS=1.2.3.4')
+        with self.assertRaises(CalledProcessError):
+            nxoobctl(cmd, key=None)
+
 if __name__ == '__main__':
     unittest.main()
