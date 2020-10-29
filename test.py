@@ -5,7 +5,8 @@ import subprocess
 from subprocess import CalledProcessError
 
 '''
-All tests expect that certificate in CERT_PATH has already been installed to module
+All tests expect that certificate in CERT_PATH has already been installed
+and defaultGW and DNS configured according to DEFAULT_CONFIG table.
 '''
 
 KEY_PATH =  './cert.key'
@@ -16,12 +17,12 @@ DEFAULT_CONFIG = {
     'IPMode': 'STATIC',
     'IPAddress': '192.168.0.130',
     'netmask': '255.255.255.0',
-    'defaultGw': '192.168.0.254',
-    'DNS': '0.0.0.0',
+    'defaultGw': '192.168.0.1',
+    'DNS': '8.8.8.8',
     'NTP': '0.europe.pool.ntp.org',
     'NTP2': '0.pool.ntp.org',
     'GMT': 'UTC+0',
-    'fwVersion': '1.0.0-20201020-NXOOB',
+    'fwVersion': '1.0.0-20201028-NXOOB',
     'GUID': '',
 }
 
