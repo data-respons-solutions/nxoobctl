@@ -23,7 +23,7 @@ netmask: 255.255.255.0
 
 defaultGw: 192.168.0.254
 
-DNS: 8.8.8.8
+DNS: 0.0.0.0
 
 NTP: 0.europe.pool.ntp.org
 
