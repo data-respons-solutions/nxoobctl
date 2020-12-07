@@ -6,7 +6,12 @@ from subprocess import CalledProcessError
 
 '''
 All tests expect that certificate in CERT_PATH has already been installed
-and defaultGW configured according to DEFAULT_CONFIG table.
+ $ nxoobctl.py --uri wss://192.168.0.130:55688 -c set_certificate cert.pub
+ 
+Network environment for tests:
+ OOB module:
+  - Access to internet by gateway 192.168.0.254
+
 '''
 
 KEY_PATH =  './cert.key'
@@ -17,12 +22,12 @@ DEFAULT_CONFIG = {
     'IPMode': 'STATIC',
     'IPAddress': '192.168.0.130',
     'netmask': '255.255.255.0',
-    'defaultGw': '192.168.0.1',
+    'defaultGw': '192.168.0.254',
     'DNS': '8.8.8.8',
     'NTP': '0.europe.pool.ntp.org',
     'NTP2': '0.pool.ntp.org',
     'GMT': 'UTC+0',
-    'fwVersion': '1.0.0-20201029-NXOOB',
+    'fwVersion': '1.0.1-20201103-NXOOB',
     'GUID': '',
 }
 
